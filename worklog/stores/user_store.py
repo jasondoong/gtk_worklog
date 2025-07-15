@@ -22,6 +22,10 @@ if GI_AVAILABLE:
     class UserStore(GObject.Object):  # pragma: no cover - Gtk specific
         token = GObject.Property(type=str, default=None)
 
+        def __init__(self) -> None:
+            super().__init__()
+            self.token = None
+
         def load_credentials(self) -> None:
             """Load credentials from configuration."""
             pass
