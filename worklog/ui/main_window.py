@@ -1,4 +1,4 @@
-"""Main application window placeholder."""
+"""Main application window implementation following the specification."""
 
 try:
     import gi
@@ -13,15 +13,41 @@ except Exception:  # pragma: no cover - gi not installed
 if GTK_AVAILABLE:
 
     class MainWindow(Gtk.ApplicationWindow):  # pragma: no cover - UI code
+        """Primary application window with basic layout widgets."""
+
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
+
             self.set_title("Worklog")
             self.set_default_size(800, 600)
-            self.set_titlebar(None)
 
-            content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            content.append(Gtk.Label(label="Main Window Placeholder"))
-            self.set_child(content)
+            # Header bar with simple toolbar
+            header = Gtk.HeaderBar(title="Worklog", show_close_button=True)
+            menu_btn = Gtk.Button.new_from_icon_name("open-menu-symbolic")
+            search_entry = Gtk.SearchEntry()
+            refresh_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic")
+            header.pack_start(menu_btn)
+            header.pack_end(refresh_btn)
+            header.pack_end(search_entry)
+            self.set_titlebar(header)
+
+            # Content: spaces list on the left, logs on the right
+            paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+
+            spaces_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            spaces_list = Gtk.ListBox()
+            spaces_list.append(Gtk.Label(label="My space"))
+            spaces_list.append(Gtk.Label(label="Project A"))
+            spaces_list.append(Gtk.Label(label="Project B"))
+            spaces_box.append(spaces_list)
+
+            logs_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            logs_box.append(Gtk.Label(label="Logs list placeholder"))
+
+            paned.set_start_child(spaces_box)
+            paned.set_end_child(logs_box)
+
+            self.set_child(paned)
 else:
 
     class MainWindow:  # type: ignore[misc]

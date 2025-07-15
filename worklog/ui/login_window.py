@@ -1,4 +1,4 @@
-"""Login window placeholder."""
+"""Login window implementation following the specification."""
 
 try:
     import gi
@@ -13,12 +13,32 @@ except Exception:  # pragma: no cover - gi not installed
 if GTK_AVAILABLE:
 
     class LoginWindow(Adw.ApplicationWindow):  # pragma: no cover - UI code
+        """Simple login window with two sign in options."""
+
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
+
             self.set_title("Worklog • Sign in")
             self.set_default_size(400, 200)
+
+            # Header bar
+            header = Gtk.HeaderBar(title="Worklog • Sign in", show_close_button=True)
+            self.set_titlebar(header)
+
+            # Content area
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=20)
-            box.append(Gtk.Label(label="Login Placeholder"))
+            box.set_halign(Gtk.Align.CENTER)
+            box.set_valign(Gtk.Align.CENTER)
+
+            google_btn = Gtk.Button(label="Google")
+            email_btn = Gtk.Button(label="Email & password")
+
+            btn_box = Gtk.Box(spacing=12)
+            btn_box.append(google_btn)
+            btn_box.append(email_btn)
+
+            box.append(btn_box)
+
             self.set_content(box)
 else:
 
