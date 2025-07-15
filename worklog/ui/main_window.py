@@ -12,13 +12,21 @@ except Exception:  # pragma: no cover - gi not installed
 
 if GTK_AVAILABLE:
 
-    class MainWindow(Adw.ApplicationWindow):  # pragma: no cover - UI code
+    class MainWindow(Gtk.ApplicationWindow):  # pragma: no cover - UI code
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
             self.set_title("Worklog")
             self.set_default_size(800, 600)
-            view = Gtk.Label(label="Main Window Placeholder")
-            self.set_content(view)
+            self.set_titlebar(None)
+
+            toolbar = Gtk.HeaderBar()
+            toolbar.set_show_close_button(False)
+            toolbar.set_title_widget(Gtk.Label(label="Worklog"))
+
+            content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            content.append(toolbar)
+            content.append(Gtk.Label(label="Main Window Placeholder"))
+            self.set_child(content)
 else:
 
     class MainWindow:  # type: ignore[misc]
