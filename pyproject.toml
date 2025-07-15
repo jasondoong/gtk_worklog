@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "gtk-worklog"
+version = "0.1.0"
+description = "GTK desktop client for Worklog"
+authors = ["Worklog Desktop Team <team@example.com>"]
+packages = [{include = "worklog"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+PyGObject = "*"
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.0"
+
+[tool.poetry.scripts]
+worklog = "main:main"
