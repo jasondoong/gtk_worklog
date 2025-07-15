@@ -62,9 +62,17 @@ Schema versioned via Alembic; first migration shipped inside installer.
 
 ### 5.1 Authentication
 
-* Email/password & Google sign‑in identical to web.
-* Token refresh on app start; refresh failure opens login window.
-* Support multiple accounts (profile switcher in header).
+| Area | Desktop Requirement | Notes |
+|------|--------------------|-------|
+| **Sign‑in method** | Google account only (Firebase Auth “Sign in with Google” OAuth flow) | The web app does **not** yet implement e‑mail / password. Support for additional providers is a backlog item. |
+| **Login flow** | 1. `LoginWindow` opens the user’s default browser to Google OAuth.<br>2. On success Firebase returns **`id_token`** + **`refresh_token`**.<br>3. Desktop calls `POST /users/` with avatar URL, e‑mail, uid, display‑name to (create \| update) the user in the Worklog backend.<br>4. Credentials are cached in **gnome‑keyring** (fallback `~/.config/worklog/credentials.json.enc`). | Mirrors `signInWithPopup()` → `useAuthState()` logic in `personalLogger_frontend/src/components/login.jsx`. |
+| **Token refresh** | • Immediately after login and **every 60 s** call `securetoken.googleapis.com/v1/token` with `grant_type=refresh_token` to obtain a fresh **`id_token`**.<br>• On refresh failure (network or 401) the app shows `LoginWindow` and purges stale credentials.<br>• Desktop may increase the interval to 5 min to reduce traffic; use a 55 min max‑age guard in case of suspend/resume. | Matches React’s `getIdToken(user, true)` loop in `App.jsx`. |
+| **API authorisation** | All HTTP requests include `Authorization: Bearer <id_token>` header. | As in the web client. |
+| **Sign‑out** | Avatar drop‑down → “Logout”.<br>• Call Firebase `signOut()`.<br>• Clear tokens from keyring / disk.<br>• Flush stores (`logs`, `spaces`, etc.).<br>• Navigate to `LoginWindow`. | Implemented in `UserAvatar.jsx` (`logout()` clears logs). |
+| **Multi‑account** | **Not yet in web.** Desktop v1 keeps a single active session; a profile switcher is pencilled in for Milestone 7. | Remove “Support multiple accounts” from earlier spec until the feature lands in both fronts. |
+| **Offline handling** | If token is ≥ 50 min old **and** no network, operate offline (read‑only). Mutations are persisted to the local queue; the sync engine will POST once the token is refreshed. | Ensures users aren’t locked out while travelling. |
+| **Security** | • Tokens never written unencrypted.<br>• `xdg‑open` launches the OAuth flow so the browser shows Google’s consent screen.<br>• Validate Firebase project ID (`worklog‑b6b69`) matches build channel. | |
+
 
 ### 5.2 Spaces
 
