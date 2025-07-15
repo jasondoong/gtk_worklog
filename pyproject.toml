@@ -9,7 +9,7 @@ packages = [{include = "worklog"}]
 python = "^3.12"
 PyGObject = "*"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
 
 [tool.poetry.scripts]
