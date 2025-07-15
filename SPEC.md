@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-Provide an **offline‑capable** Linux desktop client that replicates, as closely as possible, every user‑facing behaviour of the existing React + Zustand web application contained in *personalLogger_frontend*. The desktop client is aimed at developers and project managers who prefer a native workflow and want faster startup, global shortcuts, and system‑tray access.
+Provide an Linux desktop client that replicates, as closely as possible, every user‑facing behaviour of the existing React + Zustand web application contained in *personalLogger_frontend*. The desktop client is aimed at developers and project managers who prefer a native workflow and want faster startup, global shortcuts, and system‑tray access.
 
 ---
 
@@ -37,7 +37,7 @@ main.py ──► Gtk.Application
                │     └─ export.py          (xlsx / csv via pandas + xlsxwriter)
                │
                └── Persistence
-                     └─ SQLite cache (peewee ORM or SQLAlchemy + Alembic migrations)
+                     └─ SQLite cache (SQLAlchemy + Alembic migrations)
 ```
 
 The GLib main‑loop runs **asyncio** (`GLib.MainContext.default().push_thread_default()`) so stores and services can await HTTP calls without blocking UI.
@@ -48,11 +48,11 @@ The GLib main‑loop runs **asyncio** (`GLib.MainContext.default().push_thread_d
 
 | Entity     | Fields (desktop)                                                                                                 | Notes                                          |
 | ---------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| **User**   | id, name, email, avatar_url, locale, token, refresh_token, expires_at                                         | Stored in `~/.config/worklog/credentials.json` |
-| **Space**  | id, name, color, is_personal, created_at, updated_at                                                          | `*my_space` constant respected                 |
-| **Member** | id, space_id → Space, display_name, role, joined_at                                                           | Roles: owner \| editor \| viewer               |
-| **Tag**    | id, space_id, name, color, created_at                                                                          | Color hex is rendered via libadwaita Avatar    |
-| **Log**    | id, space_id, content (Markdown), record_time (tz‑aware), tag_ids [], created_at, updated_at, deleted_at? | Uses *RichTextView* for editing                |
+| **User**   | id, name, email, avatar_url, locale, token, refresh_token                                                        | Stored in `~/.config/worklog/credentials.json` |
+| **Space**  | id, name, color, is_personal, created_at, updated_at                                                             | `*my_space` constant respected                 |
+| **Member** | id, space_id → Space, display_name, role, joined_at                                                              | Roles: owner \| editor \| viewer               |
+| **Tag**    | id, space_id, name, color, created_at                                                                            | Color hex is rendered via libadwaita Avatar    |
+| **Log**    | id, space_id, content (Markdown), record_time (tz‑aware), tag_ids [], created_at, updated_at                     | Uses *RichTextView* for editing                |
 
 Schema versioned via Alembic; first migration shipped inside installer.
 
