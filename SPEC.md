@@ -142,10 +142,11 @@ Schema versioned via Alembic; first migration shipped inside installer.
    |  [ Google ]  [ Email & password ▼ ]   |
    +---------------------------------------+
    ```
-2. **MainWindow (Adw.ApplicationWindow)**
+2. **MainWindow (Gtk.ApplicationWindow)**
 
    ```
-   HeaderBar:  ☰  Worklog       🔍 [ Search ]   ↻   ⏷ UserAvatar
+   Title Bar:  Worklog    [_][▢][X]
+   Toolbar:    ☰  Worklog       🔍 [ Search ]   ↻   ⏷ UserAvatar
    ┌──────────┬────────────────────────────────────────┐
    │  Spaces  │  LogsList (grouped)                    │
    │*My space │  2025/07/15                            │
