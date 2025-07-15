@@ -22,7 +22,10 @@ if GTK_AVAILABLE:
             self.set_default_size(800, 600)
 
             # Header bar with simple toolbar
-            header = Gtk.HeaderBar(title="Worklog", show_close_button=True)
+            header = Gtk.HeaderBar()
+            header.set_show_close_button(True)
+            title_label = Gtk.Label(label="Worklog")
+            header.set_title_widget(title_label)
             menu_btn = Gtk.Button.new_from_icon_name("open-menu-symbolic")
             search_entry = Gtk.SearchEntry()
             refresh_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic")

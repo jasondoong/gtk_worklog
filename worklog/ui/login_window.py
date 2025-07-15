@@ -22,7 +22,10 @@ if GTK_AVAILABLE:
             self.set_default_size(400, 200)
 
             # Header bar
-            header = Gtk.HeaderBar(title="Worklog • Sign in", show_close_button=True)
+            header = Gtk.HeaderBar()
+            header.set_show_close_button(True)
+            title_label = Gtk.Label(label="Worklog • Sign in")
+            header.set_title_widget(title_label)
             self.set_titlebar(header)
 
             # Content area
