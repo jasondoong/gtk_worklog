@@ -19,12 +19,7 @@ if GTK_AVAILABLE:
             self.set_default_size(800, 600)
             self.set_titlebar(None)
 
-            toolbar = Gtk.HeaderBar()
-            toolbar.set_show_close_button(False)
-            toolbar.set_title_widget(Gtk.Label(label="Worklog"))
-
             content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            content.append(toolbar)
             content.append(Gtk.Label(label="Main Window Placeholder"))
             self.set_child(content)
 else:
