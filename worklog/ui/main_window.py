@@ -115,7 +115,7 @@ if GTK_AVAILABLE:
             except Exception:
                 return
 
-            logs = payload.get("data", [])
+            logs = payload or []
             items: list[GObject.Object] = []
             current_date = None
             for log in logs:
