@@ -1,4 +1,6 @@
-"""Login window implementation following the specification."""
+"""Login window – Google sign-in entry point."""
+
+import logging
 
 try:
     import gi
@@ -13,7 +15,7 @@ except Exception:  # pragma: no cover - gi not installed
 if GTK_AVAILABLE:
 
     class LoginWindow(Adw.ApplicationWindow):  # pragma: no cover - UI code
-        """Simple login window with Google sign in only."""
+        """Simple login window with Google sign-in only."""
 
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
@@ -29,7 +31,11 @@ if GTK_AVAILABLE:
             self.set_titlebar(header)
 
             # Content area
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=20)
+            box = Gtk.Box(
+                orientation=Gtk.Orientation.VERTICAL,
+                spacing=12,
+                margin_top=20,
+            )
             box.set_halign(Gtk.Align.CENTER)
             box.set_valign(Gtk.Align.CENTER)
 
@@ -38,28 +44,51 @@ if GTK_AVAILABLE:
 
             btn_box = Gtk.Box(spacing=12)
             btn_box.append(google_btn)
-
             box.append(btn_box)
 
             self.set_content(box)
 
-        def on_google(self, _button: Gtk.Button) -> None:
-            import webbrowser
-            from ..auth.firebase import load_google_oauth_client
+        def on_google(self, _button: Gtk.Button) -> None:  # pragma: no cover - UI code
+            """Run Google OAuth → exchange for Firebase → sign in."""
+            from ..auth.firebase import load_firebase_config
+            from ..auth.google import do_google_oauth, exchange_google_to_firebase
 
-            cfg = load_google_oauth_client()
-            client_id = cfg.get("client_id")
-            if not client_id:
-                raise RuntimeError("Google OAuth client ID missing")
+            app = self.get_application()  # type: ignore[assignment]
 
-            url = (
-                "https://accounts.google.com/o/oauth2/v2/auth?"
-                f"client_id={client_id}&"
-                "response_type=code&scope=openid%20email%20profile&"
-                "redirect_uri=worklog://auth"
+            try:
+                # Step 1: Browser OAuth
+                google_id_token, _google_refresh = do_google_oauth()
+
+                # Step 2: Firebase exchange
+                fb_cfg = load_firebase_config()
+                api_key = fb_cfg["apiKey"]
+                id_token, refresh_token = exchange_google_to_firebase(api_key, google_id_token)
+            except Exception as exc:  # pragma: no cover - UI error path
+                logging.exception("Google sign-in failed")
+                self._show_error(f"Google sign-in failed:\n{exc}")
+                return
+
+            # Step 3: Persist + open main window
+            app.user_store.sign_in(id_token, refresh_token)
+
+            from .main_window import MainWindow
+            win = MainWindow(app.user_store, application=app)
+            app.main_window = win  # keep reference on the app
+            win.present()
+            self.close()
+
+        def _show_error(self, message: str) -> None:  # pragma: no cover - UI code
+            """Simple inline error dialog."""
+            dlg = Adw.MessageDialog.new(
+                self,
+                heading="Sign-in error",
+                body=message,
             )
-            webbrowser.open(url)
-else:
+            dlg.add_response("ok", "OK")
+            dlg.set_default_response("ok")
+            dlg.connect("response", lambda *_: dlg.destroy())
+            dlg.present()
 
+else:
     class LoginWindow:  # type: ignore[misc]
         pass

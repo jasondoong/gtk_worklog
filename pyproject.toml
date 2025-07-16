@@ -8,6 +8,9 @@ packages = [{include = "worklog"}]
 [tool.poetry.dependencies]
 python = "^3.12"
 PyGObject = "*"
+google-auth = "*"
+google-auth-oauthlib = "^1.2"
+requests = "^2.32"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
