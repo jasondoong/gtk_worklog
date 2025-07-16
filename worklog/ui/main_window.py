@@ -1,47 +1,134 @@
-import gi
-gi.require_version("Gtk", "4.0")          # ensure you really use GTK 4
-from gi.repository import Gtk
+try:
+    import gi
+    gi.require_version("Gtk", "4.0")
+    gi.require_version("Gio", "2.0")
+    from gi.repository import Gtk, Gio
+    GTK_AVAILABLE = True
+except Exception:  # pragma: no cover - gi not installed
+    Gtk = Gio = None  # type: ignore
+    GTK_AVAILABLE = False
 
 from ..stores.user_store import UserStore
 from .login_window import LoginWindow
 
-class MainWindow(Gtk.ApplicationWindow):  # pragma: no cover – UI code
-    """Primary application window with basic layout widgets."""
+if GTK_AVAILABLE:
 
-    def __init__(self, user_store: UserStore, **kwargs):
-        super().__init__(**kwargs)
-        self.user_store = user_store
+    class MainWindow(Gtk.ApplicationWindow):  # pragma: no cover – UI code
+        """Primary application window with basic layout widgets."""
 
-        self.set_title("Worklog")
-        self.set_default_size(800, 600)
+        def __init__(self, user_store: UserStore, **kwargs):
+            super().__init__(**kwargs)
+            self.user_store = user_store
 
-        # ── Header bar ───────────────────────────────────────────────
-        header = Gtk.HeaderBar()
-        header.set_show_title_buttons(True)          # ← GTK 4 API
-        title_label = Gtk.Label(label="Worklog")
-        header.set_title_widget(title_label)
+            self.set_title("Worklog")
+            self.set_default_size(800, 600)
 
-        menu_btn = Gtk.Button()
-        menu_btn.set_child(Gtk.Image.new_from_icon_name("open-menu-symbolic"))
-        search_entry = Gtk.SearchEntry()
-        refresh_btn = Gtk.Button()
-        refresh_btn.set_child(Gtk.Image.new_from_icon_name("view-refresh-symbolic"))
-        logout_btn = Gtk.Button()
-        logout_btn.set_child(
-            Gtk.Image.new_from_icon_name("system-log-out-symbolic")
-        )
-        logout_btn.connect("clicked", self.on_logout)
+            header = Gtk.HeaderBar()
+            header.set_show_title_buttons(True)
+            title_label = Gtk.Label(label="Worklog")
+            header.set_title_widget(title_label)
 
-        header.pack_start(menu_btn)
-        header.pack_end(refresh_btn)
-        header.pack_end(logout_btn)
-        header.pack_end(search_entry)
+            menu_btn = Gtk.Button()
+            menu_btn.set_child(Gtk.Image.new_from_icon_name("open-menu-symbolic"))
+            search_entry = Gtk.SearchEntry()
+            refresh_btn = Gtk.Button()
+            refresh_btn.set_child(Gtk.Image.new_from_icon_name("view-refresh-symbolic"))
+            refresh_btn.connect("clicked", self.on_refresh)
+            logout_btn = Gtk.Button()
+            logout_btn.set_child(Gtk.Image.new_from_icon_name("system-log-out-symbolic"))
+            logout_btn.connect("clicked", self.on_logout)
 
-        self.set_titlebar(header)
+            header.pack_start(menu_btn)
+            header.pack_end(refresh_btn)
+            header.pack_end(logout_btn)
+            header.pack_end(search_entry)
 
-    def on_logout(self, _button: Gtk.Button) -> None:
-        self.user_store.sign_out()
-        win = LoginWindow(application=self.get_application())
-        win.present()
-        self.close()
+            self.set_titlebar(header)
 
+            self._list_store = Gio.ListStore()
+            self._selection = Gtk.NoSelection.new(self._list_store)
+
+            factory = Gtk.SignalListItemFactory()
+            factory.connect("setup", self._on_item_setup)
+            factory.connect("bind", self._on_item_bind)
+
+            self.list_view = Gtk.ListView.new(self._selection, factory)
+
+            scrolled = Gtk.ScrolledWindow()
+            scrolled.set_child(self.list_view)
+            self.set_child(scrolled)
+
+            self.refresh()
+
+        def on_logout(self, _button: Gtk.Button) -> None:
+            self.user_store.sign_out()
+            win = LoginWindow(application=self.get_application())
+            win.present()
+            self.close()
+
+        # ── ListView helpers ──────────────────────────────────────────
+        def _on_item_setup(self, _factory: Gtk.ListItemFactory, item: Gtk.ListItem) -> None:
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            time_label = Gtk.Label(xalign=0)
+            content_label = Gtk.Label(xalign=0)
+            box.append(time_label)
+            box.append(content_label)
+            item.set_child(box)
+            item.time_label = time_label  # type: ignore[attr-defined]
+            item.content_label = content_label  # type: ignore[attr-defined]
+
+        def _on_item_bind(self, _factory: Gtk.ListItemFactory, item: Gtk.ListItem) -> None:
+            data = item.get_item()
+            time_label = item.time_label  # type: ignore[attr-defined]
+            content_label = item.content_label  # type: ignore[attr-defined]
+            if isinstance(data, dict) and data.get("type") == "header":
+                time_label.set_markup(f"<b>{data['date']}</b>")
+                content_label.set_text("")
+            elif isinstance(data, dict) and data.get("type") == "log":
+                time_label.set_text(data.get("time", ""))
+                content_label.set_text(data.get("text", ""))
+            else:
+                time_label.set_text("")
+                content_label.set_text("")
+
+        # ── Data loading ──────────────────────────────────────────────
+        def refresh(self) -> None:
+            token = self.user_store.token
+            if not token:
+                return
+            from ..services import api_client
+
+            try:
+                payload = api_client.get_worklogs(token, sign_out=self._handle_sign_out)
+            except Exception:
+                return
+
+            logs = payload.get("data", [])
+            items = []
+            current_date = None
+            for log in logs:
+                dt = str(log.get("record_time", ""))[:10]
+                if dt != current_date:
+                    current_date = dt
+                    items.append({"type": "header", "date": current_date})
+                time_str = str(log.get("record_time", ""))[11:16]
+                text = log.get("content", "")
+                items.append({"type": "log", "time": time_str, "text": text})
+
+            self._list_store.remove_all()
+            for item in items:
+                self._list_store.append(item)
+
+        def on_refresh(self, _button: Gtk.Button) -> None:
+            self.refresh()
+
+        def _handle_sign_out(self) -> None:
+            self.user_store.sign_out()
+            win = LoginWindow(application=self.get_application())
+            win.present()
+            self.close()
+
+else:
+
+    class MainWindow:  # type: ignore[misc]
+        pass
