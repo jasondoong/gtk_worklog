@@ -14,7 +14,7 @@ except Exception:  # pragma: no cover - gi not installed
 
 if GTK_AVAILABLE:
 
-    class LoginWindow(Adw.ApplicationWindow):  # pragma: no cover - UI code
+    class LoginWindow(Gtk.ApplicationWindow):  # pragma: no cover - UI code
         """Simple login window with Google sign-in only."""
 
         def __init__(self, **kwargs):
@@ -46,7 +46,7 @@ if GTK_AVAILABLE:
             btn_box.append(google_btn)
             box.append(btn_box)
 
-            self.set_content(box)
+            self.set_child(box)
 
         def on_google(self, _button: Gtk.Button) -> None:  # pragma: no cover - UI code
             """Run Google OAuth → exchange for Firebase → sign in."""
