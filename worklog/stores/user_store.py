@@ -21,6 +21,8 @@ import json
 from pathlib import Path
 from typing import Dict, Optional
 
+from ..auth.firebase import load_firebase_config
+
 _ENC_KEY = b"worklog"
 
 
@@ -67,6 +69,7 @@ if GI_AVAILABLE:
             self.token: str | None = None
             self.refresh_token: str | None = None
             self._cred_path = _get_cred_path()
+            self._firebase_cfg = load_firebase_config()
             self.load_credentials()
 
         # ── Public API ────────────────────────────────────────────────
@@ -101,8 +104,12 @@ if GI_AVAILABLE:
                     "refresh_token": self.refresh_token,
                 }
             ).encode()
+            url = (
+                "https://securetoken.googleapis.com/v1/token?key="
+                + self._firebase_cfg["apiKey"]
+            )
             req = request.Request(
-                "https://securetoken.googleapis.com/v1/token",
+                url,
                 data=data,
                 method="POST",
             )
@@ -128,6 +135,7 @@ else:
             self.token: str | None = None
             self.refresh_token: str | None = None
             self._cred_path = _get_cred_path()
+            self._firebase_cfg = load_firebase_config()
             self.load_credentials()
 
         def load_credentials(self) -> None:  # pragma: no cover - placeholder
@@ -158,8 +166,12 @@ else:
                     "refresh_token": self.refresh_token,
                 }
             ).encode()
+            url = (
+                "https://securetoken.googleapis.com/v1/token?key="
+                + self._firebase_cfg["apiKey"]
+            )
             req = request.Request(
-                "https://securetoken.googleapis.com/v1/token",
+                url,
                 data=data,
                 method="POST",
             )
