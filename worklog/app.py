@@ -39,6 +39,9 @@ if GTK_AVAILABLE:
                 if self.main_window is None:
                     from .ui.main_window import MainWindow
                     self.main_window = MainWindow(self.user_store, application=self)
+                else:
+                    if hasattr(self.main_window, "refresh"):
+                        self.main_window.refresh()
                 self.main_window.present()
 
 else:
