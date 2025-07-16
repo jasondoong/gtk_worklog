@@ -21,10 +21,15 @@ class MainWindow(Gtk.ApplicationWindow):  # pragma: no cover – UI code
         title_label = Gtk.Label(label="Worklog")
         header.set_title_widget(title_label)
 
-        menu_btn    = Gtk.Button.new_from_icon_name("open-menu-symbolic")
+        menu_btn = Gtk.Button()
+        menu_btn.set_child(Gtk.Image.new_from_icon_name("open-menu-symbolic"))
         search_entry = Gtk.SearchEntry()
-        refresh_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic")
-        logout_btn  = Gtk.Button.new_from_icon_name("system-log-out-symbolic")
+        refresh_btn = Gtk.Button()
+        refresh_btn.set_child(Gtk.Image.new_from_icon_name("view-refresh-symbolic"))
+        logout_btn = Gtk.Button()
+        logout_btn.set_child(
+            Gtk.Image.new_from_icon_name("system-log-out-symbolic")
+        )
         logout_btn.connect("clicked", self.on_logout)
 
         header.pack_start(menu_btn)

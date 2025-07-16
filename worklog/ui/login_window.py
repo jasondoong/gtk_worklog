@@ -23,7 +23,7 @@ if GTK_AVAILABLE:
 
             # Header bar
             header = Gtk.HeaderBar()
-            header.set_show_close_button(True)
+            header.set_show_title_buttons(True)
             title_label = Gtk.Label(label="Worklog • Sign in")
             header.set_title_widget(title_label)
             self.set_titlebar(header)
