@@ -1,6 +1,8 @@
 """Application setup for Worklog."""
 from typing import Optional
 
+from .stores.user_store import UserStore
+
 try:
     import gi
     gi.require_version("Gtk", "4.0")
@@ -20,6 +22,7 @@ if GTK_AVAILABLE:
         def __init__(self):
             super().__init__(application_id="org.worklog")
             self.main_window: Optional[Gtk.Window] = None
+            self.user_store = UserStore()
             self.connect("startup", self.on_startup)
             self.connect("activate", self.on_activate)
 
@@ -28,10 +31,15 @@ if GTK_AVAILABLE:
             GLib.set_prgname("worklog")
 
         def on_activate(self, app: Adw.Application) -> None:  # pragma: no cover - UI code
-            if self.main_window is None:
-                from .ui.main_window import MainWindow
-                self.main_window = MainWindow(application=self)
-            self.main_window.present()
+            if not self.user_store.token:
+                from .ui.login_window import LoginWindow
+                window = LoginWindow(application=self)
+                window.present()
+            else:
+                if self.main_window is None:
+                    from .ui.main_window import MainWindow
+                    self.main_window = MainWindow(self.user_store, application=self)
+                self.main_window.present()
 
 else:
 
