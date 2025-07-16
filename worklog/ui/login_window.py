@@ -13,7 +13,7 @@ except Exception:  # pragma: no cover - gi not installed
 if GTK_AVAILABLE:
 
     class LoginWindow(Adw.ApplicationWindow):  # pragma: no cover - UI code
-        """Simple login window with two sign in options."""
+        """Simple login window with Google sign in only."""
 
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
@@ -34,15 +34,18 @@ if GTK_AVAILABLE:
             box.set_valign(Gtk.Align.CENTER)
 
             google_btn = Gtk.Button(label="Google")
-            email_btn = Gtk.Button(label="Email & password")
+            google_btn.connect("clicked", self.on_google)
 
             btn_box = Gtk.Box(spacing=12)
             btn_box.append(google_btn)
-            btn_box.append(email_btn)
 
             box.append(btn_box)
 
             self.set_content(box)
+
+        def on_google(self, _button: Gtk.Button) -> None:
+            import webbrowser
+            webbrowser.open("https://accounts.google.com/o/oauth2/v2/auth")
 else:
 
     class LoginWindow:  # type: ignore[misc]
