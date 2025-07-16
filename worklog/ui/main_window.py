@@ -2,14 +2,16 @@ try:
     import gi
     gi.require_version("Gtk", "4.0")
     gi.require_version("Gio", "2.0")
-    from gi.repository import Gtk, Gio
+    gi.require_version("GObject", "2.0")
+    from gi.repository import Gtk, Gio, GObject
     GTK_AVAILABLE = True
 except Exception:  # pragma: no cover - gi not installed
-    Gtk = Gio = None  # type: ignore
+    Gtk = Gio = GObject = None  # type: ignore
     GTK_AVAILABLE = False
 
 from ..stores.user_store import UserStore
 from .login_window import LoginWindow
+from .log_item import DateHeader, LogItem
 
 if GTK_AVAILABLE:
 
@@ -25,27 +27,37 @@ if GTK_AVAILABLE:
 
             header = Gtk.HeaderBar()
             header.set_show_title_buttons(True)
+
             title_label = Gtk.Label(label="Worklog")
             header.set_title_widget(title_label)
 
+            space_btn = Gtk.Button(label="default")
+            space_btn.set_focusable(False)
+            space_btn.set_valign(Gtk.Align.CENTER)
+
+            prev_btn = Gtk.Button()
+            prev_btn.set_child(Gtk.Image.new_from_icon_name("go-previous-symbolic"))
+            next_btn = Gtk.Button()
+            next_btn.set_child(Gtk.Image.new_from_icon_name("go-next-symbolic"))
+            month_lbl = Gtk.Label(label="Month July 2025")
+            nav_box = Gtk.Box(spacing=6)
+            nav_box.append(prev_btn)
+            nav_box.append(month_lbl)
+            nav_box.append(next_btn)
+
+            search_entry = Gtk.SearchEntry()
             menu_btn = Gtk.Button()
             menu_btn.set_child(Gtk.Image.new_from_icon_name("open-menu-symbolic"))
-            search_entry = Gtk.SearchEntry()
-            refresh_btn = Gtk.Button()
-            refresh_btn.set_child(Gtk.Image.new_from_icon_name("view-refresh-symbolic"))
-            refresh_btn.connect("clicked", self.on_refresh)
-            logout_btn = Gtk.Button()
-            logout_btn.set_child(Gtk.Image.new_from_icon_name("system-log-out-symbolic"))
-            logout_btn.connect("clicked", self.on_logout)
+            menu_btn.connect("clicked", self.on_logout)
 
-            header.pack_start(menu_btn)
-            header.pack_end(refresh_btn)
-            header.pack_end(logout_btn)
+            header.pack_start(space_btn)
+            header.pack_end(menu_btn)
             header.pack_end(search_entry)
+            header.pack_end(nav_box)
 
             self.set_titlebar(header)
 
-            self._list_store = Gio.ListStore()
+            self._list_store = Gio.ListStore.new(GObject.Object)
             self._selection = Gtk.NoSelection.new(self._list_store)
 
             factory = Gtk.SignalListItemFactory()
@@ -81,12 +93,12 @@ if GTK_AVAILABLE:
             data = item.get_item()
             time_label = item.time_label  # type: ignore[attr-defined]
             content_label = item.content_label  # type: ignore[attr-defined]
-            if isinstance(data, dict) and data.get("type") == "header":
-                time_label.set_markup(f"<b>{data['date']}</b>")
+            if isinstance(data, DateHeader):
+                time_label.set_markup(f"<b>{data.date}</b>")
                 content_label.set_text("")
-            elif isinstance(data, dict) and data.get("type") == "log":
-                time_label.set_text(data.get("time", ""))
-                content_label.set_text(data.get("text", ""))
+            elif isinstance(data, LogItem):
+                time_label.set_text(data.time)
+                content_label.set_text(data.text)
             else:
                 time_label.set_text("")
                 content_label.set_text("")
@@ -104,23 +116,20 @@ if GTK_AVAILABLE:
                 return
 
             logs = payload.get("data", [])
-            items = []
+            items: list[GObject.Object] = []
             current_date = None
             for log in logs:
                 dt = str(log.get("record_time", ""))[:10]
                 if dt != current_date:
                     current_date = dt
-                    items.append({"type": "header", "date": current_date})
+                    items.append(DateHeader(current_date))
                 time_str = str(log.get("record_time", ""))[11:16]
                 text = log.get("content", "")
-                items.append({"type": "log", "time": time_str, "text": text})
+                items.append(LogItem(time_str, text))
 
             self._list_store.remove_all()
             for item in items:
                 self._list_store.append(item)
-
-        def on_refresh(self, _button: Gtk.Button) -> None:
-            self.refresh()
 
         def _handle_sign_out(self) -> None:
             self.user_store.sign_out()
