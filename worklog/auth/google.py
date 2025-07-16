@@ -29,7 +29,12 @@ from typing import Tuple
 import requests
 
 # Scopes required to receive an ID token that includes the user's identity.
-SCOPES = ["openid", "email", "profile"]
+# Use the canonical userinfo scope URIs to avoid scope mismatch warnings.
+SCOPES = [
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+]
 
 # Location where the user should drop the downloaded *Desktop app* client JSON.
 _GOOGLE_OAUTH_PATH = Path.home() / ".config" / "worklog" / "google_oauth_client.json"
