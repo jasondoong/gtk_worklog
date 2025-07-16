@@ -57,14 +57,18 @@ The GLib main‑loop runs **asyncio** (`GLib.MainContext.default().push_thread_d
 
 ### 5.1 Authentication
 
-> **Implementation note (2025‑07‑16)**  
-> Current `gtk_worklog` commits do **not** load the Firebase project’s public configuration (API key, client‑ID, etc.) nor append `?key=<API_KEY>` to Firebase REST calls.  
-> As a result, token refresh and account‑linking fail. **Fix is mandatory for Milestone 1.**
+> **Implementation note (2025‑07‑17)**
+> The desktop client expects two configuration files in `~/.config/worklog/`:
+> `firebase_config.json` and `google_oauth_client.json`. Environment variables
+> with the prefix `WORKLOG_` may override individual fields. These values are
+> required so every Firebase Auth request appends `?key=<API_KEY>` and OAuth can
+> identify the correct client ID.
 
 | Area | Desktop Requirement | Notes |
 |------|--------------------|-------|
 | **Sign‑in method** | Google account only (Firebase Auth “Sign in with Google” OAuth PKCE flow) | The web app does **not** yet implement e‑mail / password. |
 | **Firebase project config** | A *public* JSON (`firebase_config.json`) **must be present** in `~/.config/worklog/` **or** via env vars:<br>`WORKLOG_FB_API_KEY`, `WORKLOG_FB_CLIENT_ID`, `WORKLOG_FB_PROJECT_ID`, … | Same fields as the `firebaseConfig` object in the React code. Checked at startup; app aborts with an error dialog if missing. |
+| **Google OAuth client** | `google_oauth_client.json` in the same directory or env var `WORKLOG_GOOGLE_CLIENT_ID` | Use the "installed" credentials from Google Cloud; only `client_id` and `redirect_uris` are required. |
 | **Login flow** | 1. `LoginWindow` launches the system browser (`xdg‑open`) to Google OAuth with PKCE.<br>2. Redirect URI `worklog://auth` (or `http://localhost:<port>`) returns `authorization_code`.<br>3. Desktop exchanges the code via `identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=<API_KEY>` → receives **`id_token`** + **`refresh_token`**.<br>4. Call `POST /users/` to (create \| update) user profile.<br>5. Cache credentials in **gnome‑keyring** (fallback encrypted JSON). | Mirrors `signInWithPopup()` → `useAuthState()` logic in the web client. |
 | **Token refresh** | • Every 55 min (or immediately after resume) call `securetoken.googleapis.com/v1/token?key=<API_KEY>` with `grant_type=refresh_token`.<br>• On any non‑200 response, purge credentials and reopen `LoginWindow`. | Matches React’s silent‑refresh loop (`getIdToken(user, true)`). |
 | **API authorisation** | All HTTP requests include `Authorization: Bearer <id_token>` header. |  |

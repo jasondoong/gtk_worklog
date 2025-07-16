@@ -45,12 +45,12 @@ if GTK_AVAILABLE:
 
         def on_google(self, _button: Gtk.Button) -> None:
             import webbrowser
-            from ..auth.firebase import load_firebase_config
+            from ..auth.firebase import load_google_oauth_client
 
-            cfg = load_firebase_config()
-            client_id = cfg.get("clientId")
+            cfg = load_google_oauth_client()
+            client_id = cfg.get("client_id")
             if not client_id:
-                raise RuntimeError("Firebase client ID missing")
+                raise RuntimeError("Google OAuth client ID missing")
 
             url = (
                 "https://accounts.google.com/o/oauth2/v2/auth?"
