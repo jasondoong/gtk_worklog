@@ -45,7 +45,20 @@ if GTK_AVAILABLE:
 
         def on_google(self, _button: Gtk.Button) -> None:
             import webbrowser
-            webbrowser.open("https://accounts.google.com/o/oauth2/v2/auth")
+            from ..auth.firebase import load_firebase_config
+
+            cfg = load_firebase_config()
+            client_id = cfg.get("clientId")
+            if not client_id:
+                raise RuntimeError("Firebase client ID missing")
+
+            url = (
+                "https://accounts.google.com/o/oauth2/v2/auth?"
+                f"client_id={client_id}&"
+                "response_type=code&scope=openid%20email%20profile&"
+                "redirect_uri=worklog://auth"
+            )
+            webbrowser.open(url)
 else:
 
     class LoginWindow:  # type: ignore[misc]
