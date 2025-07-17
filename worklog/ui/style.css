@@ -1,0 +1,30 @@
+/* Basic styles for log day cards. Safe for both light & dark themes. */
+.day-card {
+  border-radius: 8px;
+  padding: 4px;
+  margin: 4px;
+  border: 1px solid alpha(@theme_fg_color, 0.10);
+  background-color: alpha(@theme_fg_color, 0.04);
+}
+
+.day-card-header {
+  font-weight: bold;
+}
+
+.dim-label {
+  opacity: 0.6;
+  font-size: 0.85em;
+}
+
+.log-entry-time {
+  opacity: 0.7;
+  font-size: 0.9em;
+}
+
+.log-entry-text {
+  font-size: 0.9em;
+}
+
+.day-card-separator {
+  opacity: 0.2;
+}
