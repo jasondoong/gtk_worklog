@@ -9,7 +9,9 @@ We pass raw log dicts (each with at least ``record_time`` and ``content``) so
 callers don't need to build intermediate GObject models.
 """
 
+import os
 import datetime as _dt
+import time as _time
 from typing import Iterable, Mapping, Any
 
 try:
@@ -21,13 +23,31 @@ except Exception:  # pragma: no cover - gi not installed
     Gtk = Pango = None  # type: ignore
 
 
+def _get_local_timezone():
+    try:
+        # 1. 優先用 TZ 環境變數
+        tz_env = os.environ.get("TZ")
+        if tz_env:
+            import zoneinfo
+            return zoneinfo.ZoneInfo(tz_env)
+        # 2. 其次用 time.localtime
+        if _time.daylight and _time.tzname[1]:
+            return _dt.timezone(_dt.timedelta(seconds=-_time.altzone), _time.tzname[1])
+        return _dt.timezone(_dt.timedelta(seconds=-_time.timezone), _time.tzname[0])
+    except Exception:
+        return None
+
+LOCAL_TZ = _get_local_timezone()
+
 def _coerce_time_str(record_time: Any) -> str:
-    """Return HH:MM best-effort from a backend ``record_time`` field."""
+    """Return HH:MM best-effort from a backend ``record_time`` field, local time."""
     if not record_time:
         return ""
     s = str(record_time)
     try:
         dt = _dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if LOCAL_TZ:
+            dt = dt.astimezone(LOCAL_TZ)
     except Exception:  # degrade gracefully
         return s[11:16] if len(s) >= 16 else s
     return dt.strftime("%H:%M")
