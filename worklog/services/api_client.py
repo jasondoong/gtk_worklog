@@ -73,3 +73,29 @@ def update_worklog(
     resp.raise_for_status()
     print(resp.json())
     return resp.json()
+
+
+def delete_worklog(
+    token: str,
+    worklog_id: str,
+    *,
+    sign_out: Optional[Callable[[], None]] = None,
+) -> None:
+    """DELETE a single worklog entry.
+
+    Parameters
+    ----------
+    token: Bearer token
+    worklog_id: worklog id string
+    sign_out: optional callback for 401/403
+    """
+    url = f"{API_BASE}/worklogs/{worklog_id}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json, text/plain, */*",
+    }
+    resp = requests.delete(url, headers=headers, timeout=10)
+    _handle_auth(resp, sign_out)
+    resp.raise_for_status()
+    # 通常刪除不回傳內容
+    return None

@@ -100,12 +100,14 @@ if Gtk:
             box.append(scrolled)
             btn_save = Gtk.Button.new_with_label("儲存")
             btn_cancel = Gtk.Button.new_with_label("取消")
+            btn_delete = Gtk.Button.new_with_label("刪除")
             btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
             btn_box.set_margin_top(16)
             btn_box.set_vexpand(False)
             btn_box.set_hexpand(True)
             btn_box.append(btn_save)
             btn_box.append(btn_cancel)
+            btn_box.append(btn_delete)
             box.append(btn_box)
             dialog.connect("close-request", lambda *_: self._set_editing_false())
             def on_save(_btn):
@@ -138,6 +140,24 @@ if Gtk:
                     self._orig_text = new_text
                 self._editing = False
                 dialog.close()
+            def on_delete(_btn):
+                import threading
+                def do_delete():
+                    from worklog.services import api_client
+                    rec = getattr(self, '_rec', None)
+                    token = self._get_token() if self._get_token else getattr(self, '_token', None)
+                    if rec and token:
+                        try:
+                            api_client.delete_worklog(token=token, worklog_id=rec['id'])
+                        except Exception:
+                            pass  # 可加上錯誤提示
+                    # UI 更新必須回到主執行緒
+                    import gi
+                    from gi.repository import GLib
+                    GLib.idle_add(lambda: self.on_edit(self._time_str, None))
+                threading.Thread(target=do_delete, daemon=True).start()
+                self._editing = False
+                dialog.close()
             def on_cancel(_btn):
                 self._editing = False
                 dialog.close()
@@ -146,6 +166,7 @@ if Gtk:
             self._set_editing_false = _set_editing_false
             btn_save.connect("clicked", on_save)
             btn_cancel.connect("clicked", on_cancel)
+            btn_delete.connect("clicked", on_delete)
             dialog.show()
             textview.grab_focus()
 
@@ -184,15 +205,27 @@ if Gtk:
             sep.add_css_class("day-card-separator")
             outer.append(sep)
 
+            self._log_rows = []  # 新增：記錄 row 物件
             for rec in logs:
                 time_str = _coerce_time_str(rec.get("record_time"))
                 text = str(rec.get("content", ""))
-                def on_edit(time_str, new_text, rec=rec):
-                    rec["content"] = new_text
-                    # 可加上通知父元件或觸發資料儲存的邏輯
-                row = LogEntryRow(time_str, text, on_edit=on_edit, get_token=get_token)
-                row._rec = rec  # 傳遞 rec 給 LogEntryRow 以便 PATCH
+                def on_edit(time_str, new_text, rec=rec, row_ref=None):
+                    if new_text is None:
+                        # 刪除：移除 row
+                        if row_ref and row_ref in self._log_rows:
+                            outer.remove(row_ref)
+                            self._log_rows.remove(row_ref)
+                        rec["_deleted"] = True
+                    else:
+                        rec["content"] = new_text
+                        # 可加上通知父元件或觸發資料儲存的邏輯
+                row = LogEntryRow(time_str, text, on_edit=None, get_token=get_token)
+                row._rec = rec  # 傳遞 rec 給 LogEntryRow 以便 PATCH/DELETE
                 # row._token = token  # 不再直接傳 token，改用 get_token
+                # 綁定 on_edit 並傳遞 row 參考
+                import functools
+                row.on_edit = functools.partial(on_edit, rec=rec, row_ref=row)
+                self._log_rows.append(row)
                 outer.append(row)
 
             frame.set_child(outer)
