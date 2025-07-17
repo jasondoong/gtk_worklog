@@ -51,7 +51,10 @@ if Gtk:
             text_label.add_css_class("log-entry-text")
             text_label.set_wrap(True)
             text_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
-            text_label.set_hexpand(True)
+            text_label.set_hexpand(False)  # 防止撐開父層寬度
+            text_label.set_halign(Gtk.Align.FILL)
+            text_label.set_max_width_chars(42)  # 強制最大寬度
+            text_label.set_ellipsize(Pango.EllipsizeMode.NONE)  # 不要省略號，強制換行
             self.append(text_label)
 
 
@@ -65,12 +68,16 @@ if Gtk:
             frame.set_margin_bottom(8)
             frame.set_margin_start(8)
             frame.set_margin_end(8)
+            if hasattr(frame, "set_max_width"):
+                frame.set_max_width(220)
 
             outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
             outer.set_margin_top(8)
             outer.set_margin_bottom(8)
             outer.set_margin_start(12)
             outer.set_margin_end(12)
+            outer.set_hexpand(False)
+            outer.set_halign(Gtk.Align.FILL)
 
             # Header: date + DOW
             header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)

@@ -68,7 +68,6 @@ if GTK_AVAILABLE:
 
             search_entry = Gtk.SearchEntry()
             search_entry.set_placeholder_text("Search logs…")
-            search_entry.set_hexpand(True)
 
             self._month_lbl = Gtk.Label(label="Month")
 
