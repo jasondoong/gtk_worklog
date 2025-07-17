@@ -58,6 +58,7 @@ if Gtk:
     class DayCard(Gtk.FlowBoxChild):  # pragma: no cover - pure UI glue
         def __init__(self, date_obj: _dt.date, logs: Iterable[Mapping[str, Any]]) -> None:
             super().__init__()
+            self.set_size_request(220, -1)
 
             frame = Gtk.Frame()
             frame.add_css_class("day-card")

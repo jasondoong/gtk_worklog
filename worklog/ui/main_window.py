@@ -97,6 +97,7 @@ if GTK_AVAILABLE:
             self._flow = Gtk.FlowBox()
             self._flow.set_valign(Gtk.Align.START)
             self._flow.set_selection_mode(Gtk.SelectionMode.NONE)
+            self._flow.set_min_children_per_line(1)
             self._flow.set_max_children_per_line(4)
             self._flow.set_row_spacing(12)
             self._flow.set_column_spacing(12)
