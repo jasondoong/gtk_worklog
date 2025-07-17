@@ -51,6 +51,8 @@ if GTK_AVAILABLE:
         def __init__(self, user_store: Any, **kwargs):
             super().__init__(**kwargs)
             self.user_store = user_store
+            self._current_month: _dt.date | None = None
+            self._logs: list[Mapping[str, Any]] = []
 
             self.set_title("Worklog")
             self.set_default_size(1024, 768)
@@ -72,8 +74,10 @@ if GTK_AVAILABLE:
 
             prev_btn = Gtk.Button()
             prev_btn.set_child(Gtk.Image.new_from_icon_name("go-previous-symbolic"))
+            prev_btn.connect("clicked", self._on_prev_month)
             next_btn = Gtk.Button()
             next_btn.set_child(Gtk.Image.new_from_icon_name("go-next-symbolic"))
+            next_btn.connect("clicked", self._on_next_month)
 
             month_box = Gtk.Box(spacing=4)
             month_box.append(prev_btn)
@@ -124,8 +128,37 @@ if GTK_AVAILABLE:
             if not isinstance(logs, Iterable):
                 return
 
-            groups: dict[_dt.date, list[Mapping[str, Any]]] = defaultdict(list)
+            self._logs = list(logs)
+
+            if self._current_month is None:
+                self._current_month = self._get_newest_month(self._logs)
+
+            self._build_grid()
+
+        def _get_newest_month(self, logs: Iterable[Mapping[str, Any]]) -> _dt.date:
+            newest: _dt.date | None = None
             for rec in logs:
+                rt = rec.get("record_time")
+                if not rt:
+                    continue
+                s = str(rt)
+                try:
+                    dt = _dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
+                except Exception:
+                    try:
+                        dt = _dt.datetime.fromisoformat(s[:19])
+                    except Exception:
+                        continue
+                d = dt.date()
+                if newest is None or d > newest:
+                    newest = d
+            if newest is None:
+                newest = _dt.date.today()
+            return newest.replace(day=1)
+
+        def _build_grid(self) -> None:
+            groups: dict[_dt.date, list[Mapping[str, Any]]] = defaultdict(list)
+            for rec in self._logs:
                 rt = rec.get("record_time")
                 if rt:
                     s = str(rt)
@@ -139,23 +172,43 @@ if GTK_AVAILABLE:
                             d = _dt.date.today()
                 else:
                     d = _dt.date.today()
-                groups[d].append(rec)
+                if (
+                    d.year == self._current_month.year
+                    and d.month == self._current_month.month
+                ):
+                    groups[d].append(rec)
 
-            # clear existing
             child = self._flow.get_first_child()
             while child:
                 next_child = child.get_next_sibling()
                 self._flow.remove(child)
                 child = next_child
 
-            # newest first
             from .day_card import DayCard  # local import
             for d in sorted(groups.keys(), reverse=True):
                 self._flow.append(DayCard(d, groups[d]))
 
-            # update month label
-            newest = max(groups.keys()) if groups else _dt.date.today()
-            self._month_lbl.set_text(newest.strftime("%b %Y"))
+            self._month_lbl.set_text(self._current_month.strftime("%b %Y"))
+
+        def _shift_month(self, delta: int) -> None:
+            if self._current_month is None:
+                self._current_month = _dt.date.today().replace(day=1)
+            month = self._current_month.month + delta
+            year = self._current_month.year
+            while month < 1:
+                month += 12
+                year -= 1
+            while month > 12:
+                month -= 12
+                year += 1
+            self._current_month = _dt.date(year, month, 1)
+            self._build_grid()
+
+        def _on_prev_month(self, _btn: Gtk.Button) -> None:
+            self._shift_month(-1)
+
+        def _on_next_month(self, _btn: Gtk.Button) -> None:
+            self._shift_month(1)
 
         def _handle_sign_out(self) -> None:
             from .login_window import LoginWindow  # local import
