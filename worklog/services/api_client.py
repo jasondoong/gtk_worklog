@@ -34,3 +34,42 @@ def get_worklogs(token: str, *, sign_out: Optional[Callable[[], None]] = None, *
     _handle_auth(resp, sign_out)
     resp.raise_for_status()
     return resp.json()
+
+
+def update_worklog(
+    token: str,
+    worklog_id: str,
+    *,
+    content: str,
+    record_time: str,
+    tag_id: str = None,
+    sign_out: Optional[Callable[[], None]] = None,
+) -> Dict[str, Any]:
+    """PATCH update a single worklog entry.
+
+    Parameters
+    ----------
+    token: Bearer token
+    worklog_id: worklog id string
+    content: new content
+    record_time: ISO8601 string
+    tag_id: (optional) tag id
+    sign_out: optional callback for 401/403
+    """
+    url = f"{API_BASE}/worklogs/{worklog_id}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/plain, */*",
+    }
+    data = {
+        "content": content,
+        "record_time": record_time,
+    }
+    if tag_id:
+        data["tag_id"] = tag_id
+    resp = requests.patch(url, headers=headers, json=data, timeout=10)
+    _handle_auth(resp, sign_out)
+    resp.raise_for_status()
+    print(resp.json())
+    return resp.json()

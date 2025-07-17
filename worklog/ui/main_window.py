@@ -184,8 +184,9 @@ if GTK_AVAILABLE:
                 child = next_child
 
             from .day_card import DayCard  # local import
+            get_token = (lambda: getattr(self.user_store, "token", None))
             for d in sorted(groups.keys(), reverse=True):
-                self._flow.append(DayCard(d, groups[d]))
+                self._flow.append(DayCard(d, groups[d], get_token=get_token))
 
             self._month_lbl.set_text(self._current_month.strftime("%b %Y"))
 

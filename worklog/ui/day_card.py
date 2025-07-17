@@ -36,30 +36,121 @@ def _coerce_time_str(record_time: Any) -> str:
 if Gtk:
 
     class LogEntryRow(Gtk.Box):  # pragma: no cover - pure UI glue
-        def __init__(self, time_str: str, text: str) -> None:
+        def __init__(self, time_str: str, text: str, on_edit=None, get_token=None) -> None:
             super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
             self.add_css_class("log-entry-row")
             self.set_margin_top(2)
             self.set_margin_bottom(2)
+            self.on_edit = on_edit
+            self._editing = False
+            self._orig_text = text
+            self._time_str = time_str
+            self._get_token = get_token  # 新增：token getter
 
-            time_label = Gtk.Label(label=time_str, xalign=0)
-            time_label.set_width_chars(5)
-            time_label.add_css_class("log-entry-time")
-            self.append(time_label)
+            self.time_label = Gtk.Label(label=time_str, xalign=0)
+            self.time_label.set_width_chars(5)
+            self.time_label.add_css_class("log-entry-time")
+            self.append(self.time_label)
 
-            text_label = Gtk.Label(label=text, xalign=0)
-            text_label.add_css_class("log-entry-text")
-            text_label.set_wrap(True)
-            text_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
-            text_label.set_hexpand(False)  # 防止撐開父層寬度
-            text_label.set_halign(Gtk.Align.FILL)
-            text_label.set_max_width_chars(42)  # 強制最大寬度
-            text_label.set_ellipsize(Pango.EllipsizeMode.NONE)  # 不要省略號，強制換行
-            self.append(text_label)
+            self.text_label = Gtk.Label(label=text, xalign=0)
+            self.text_label.add_css_class("log-entry-text")
+            self.text_label.set_wrap(True)
+            self.text_label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
+            self.text_label.set_hexpand(False)  # 防止撐開父層寬度
+            self.text_label.set_halign(Gtk.Align.FILL)
+            self.text_label.set_max_width_chars(42)  # 強制最大寬度
+            self.text_label.set_ellipsize(Pango.EllipsizeMode.NONE)  # 不要省略號，強制換行
+            self.append(self.text_label)
 
+            # 新增：點擊文字可編輯
+            click_controller = Gtk.GestureClick()
+            click_controller.set_button(0)  # 0 代表任何滑鼠鍵
+            click_controller.connect("released", self._on_text_clicked)
+            self.text_label.add_controller(click_controller)
+
+        def _on_text_clicked(self, gesture, n_press, x, y):
+            if n_press == 1 and not self._editing:
+                self._show_edit_dialog()
+
+        def _show_edit_dialog(self):
+            self._editing = True
+            parent_win = self.get_root()
+            dialog = Gtk.Dialog(title="編輯內容", transient_for=parent_win, modal=True)
+            dialog.set_default_size(400, 320)
+            box = dialog.get_content_area()
+            box.set_margin_top(16)
+            box.set_margin_bottom(16)
+            box.set_margin_start(16)
+            box.set_margin_end(16)
+            # 改用 TextView
+            # 用 ScrolledWindow 包住 TextView，避免內容過多時擠掉按鈕
+            scrolled = Gtk.ScrolledWindow()
+            scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            scrolled.set_min_content_height(120)
+            scrolled.set_max_content_height(220)
+            scrolled.set_hexpand(True)
+            scrolled.set_vexpand(True)
+            textview = Gtk.TextView()
+            textview.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
+            textview.set_vexpand(True)
+            textview.set_hexpand(True)
+            buffer = textview.get_buffer()
+            buffer.set_text(self._orig_text)
+            scrolled.set_child(textview)
+            box.append(scrolled)
+            btn_save = Gtk.Button.new_with_label("儲存")
+            btn_cancel = Gtk.Button.new_with_label("取消")
+            btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            btn_box.set_margin_top(16)
+            btn_box.set_vexpand(False)
+            btn_box.set_hexpand(True)
+            btn_box.append(btn_save)
+            btn_box.append(btn_cancel)
+            box.append(btn_box)
+            dialog.connect("close-request", lambda *_: self._set_editing_false())
+            def on_save(_btn):
+                start, end = buffer.get_bounds()
+                new_text = buffer.get_text(start, end, True)
+                if new_text != self._orig_text:
+                    if self.on_edit:
+                        import threading
+                        def do_patch():
+                            from worklog.services import api_client
+                            rec = getattr(self, '_rec', None)
+                            token = self._get_token() if self._get_token else getattr(self, '_token', None)
+                            if rec and token:
+                                try:
+                                    api_client.update_worklog(
+                                        token=token,
+                                        worklog_id=rec['id'],
+                                        content=new_text,
+                                        record_time=rec.get('record_time'),
+                                        tag_id=rec.get('tag_id'),
+                                    )
+                                except Exception:
+                                    pass  # 可加上錯誤提示
+                            # UI 更新必須回到主執行緒
+                            import gi
+                            from gi.repository import GLib
+                            GLib.idle_add(lambda: self.on_edit(self._time_str, new_text))
+                        threading.Thread(target=do_patch, daemon=True).start()
+                    self.text_label.set_text(new_text)
+                    self._orig_text = new_text
+                self._editing = False
+                dialog.close()
+            def on_cancel(_btn):
+                self._editing = False
+                dialog.close()
+            def _set_editing_false():
+                self._editing = False
+            self._set_editing_false = _set_editing_false
+            btn_save.connect("clicked", on_save)
+            btn_cancel.connect("clicked", on_cancel)
+            dialog.show()
+            textview.grab_focus()
 
     class DayCard(Gtk.FlowBoxChild):  # pragma: no cover - pure UI glue
-        def __init__(self, date_obj: _dt.date, logs: Iterable[Mapping[str, Any]]) -> None:
+        def __init__(self, date_obj: _dt.date, logs: Iterable[dict], token: str = None, get_token=None) -> None:
             super().__init__()
 
             frame = Gtk.Frame()
@@ -96,7 +187,13 @@ if Gtk:
             for rec in logs:
                 time_str = _coerce_time_str(rec.get("record_time"))
                 text = str(rec.get("content", ""))
-                outer.append(LogEntryRow(time_str, text))
+                def on_edit(time_str, new_text, rec=rec):
+                    rec["content"] = new_text
+                    # 可加上通知父元件或觸發資料儲存的邏輯
+                row = LogEntryRow(time_str, text, on_edit=on_edit, get_token=get_token)
+                row._rec = rec  # 傳遞 rec 給 LogEntryRow 以便 PATCH
+                # row._token = token  # 不再直接傳 token，改用 get_token
+                outer.append(row)
 
             frame.set_child(outer)
             self.set_child(frame)
