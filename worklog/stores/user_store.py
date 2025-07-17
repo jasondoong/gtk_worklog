@@ -3,7 +3,8 @@
 try:
     import gi
     gi.require_version("GObject", "2.0")
-    from gi.repository import GObject
+    gi.require_version("GLib", "2.0")
+    from gi.repository import GObject, GLib
     GI_AVAILABLE = True
 except Exception:  # pragma: no cover - gi not installed
     GI_AVAILABLE = False
@@ -16,14 +17,25 @@ except Exception:  # pragma: no cover - gi not installed
             def __init__(self, **kwargs):
                 pass
 
+    class GLib:
+        @staticmethod
+        def timeout_add_seconds(interval: int, func):
+            return None
+
+        @staticmethod
+        def source_remove(source):
+            pass
+
 import base64
 import json
 from pathlib import Path
 from typing import Dict, Optional
+import threading
 
 from ..auth.firebase import load_firebase_config
 
 _ENC_KEY = b"worklog"
+_DEFAULT_REFRESH_INTERVAL = 55 * 60  # 55 minutes
 
 
 def _get_cred_path() -> Path:
@@ -64,13 +76,23 @@ if GI_AVAILABLE:
 
         token = GObject.Property(type=str, default=None)
 
-        def __init__(self) -> None:
+        def __init__(
+            self,
+            refresh_interval: int = _DEFAULT_REFRESH_INTERVAL,
+            auto_refresh: bool = True,
+        ) -> None:
             super().__init__()
             self.token: str | None = None
             self.refresh_token: str | None = None
             self._cred_path = _get_cred_path()
             self._firebase_cfg = load_firebase_config()
+            self._refresh_interval = refresh_interval
+            self._refresh_source: int | None = None
             self.load_credentials()
+            if auto_refresh and self.refresh_token:
+                self.refresh_id_token()
+                if self.refresh_token and self.token:
+                    self._start_refresh_timer()
 
         # ── Public API ────────────────────────────────────────────────
         def load_credentials(self) -> None:
@@ -86,10 +108,31 @@ if GI_AVAILABLE:
                 data = {"id_token": self.token, "refresh_token": self.refresh_token}
                 _save_encrypted(self._cred_path, data)
 
+        # ── Refresh helpers ─────────────────────────────────────────
+        def _start_refresh_timer(self) -> None:
+            if self._refresh_source is None and self.refresh_token:
+                self._refresh_source = GLib.timeout_add_seconds(
+                    self._refresh_interval,
+                    self._on_refresh_timer,
+                )
+
+        def _on_refresh_timer(self) -> bool:
+            self.refresh_id_token()
+            if self.token:
+                return True
+            self._refresh_source = None
+            return False
+
+        def _stop_refresh_timer(self) -> None:
+            if self._refresh_source is not None:
+                GLib.source_remove(self._refresh_source)
+                self._refresh_source = None
+
         def sign_in(self, id_token: str, refresh_token: str) -> None:
             self.token = id_token
             self.refresh_token = refresh_token
             self.save_credentials()
+            self._start_refresh_timer()
 
         def refresh_id_token(self) -> None:
             """Refresh the ID token using the stored refresh token."""
@@ -122,6 +165,7 @@ if GI_AVAILABLE:
                 self.sign_out()
 
         def sign_out(self) -> None:
+            self._stop_refresh_timer()
             self.token = None
             self.refresh_token = None
             _clear_credentials(self._cred_path)
@@ -131,12 +175,22 @@ else:
     class UserStore:  # type: ignore[misc]
         """Non‑GTK fallback implementation."""
 
-        def __init__(self):
+        def __init__(
+            self,
+            refresh_interval: int = _DEFAULT_REFRESH_INTERVAL,
+            auto_refresh: bool = True,
+        ):
             self.token: str | None = None
             self.refresh_token: str | None = None
             self._cred_path = _get_cred_path()
             self._firebase_cfg = load_firebase_config()
+            self._refresh_interval = refresh_interval
+            self._refresh_thread: threading.Timer | None = None
             self.load_credentials()
+            if auto_refresh and self.refresh_token:
+                self.refresh_id_token()
+                if self.refresh_token and self.token:
+                    self._start_refresh_timer()
 
         def load_credentials(self) -> None:  # pragma: no cover - placeholder
             creds = _load_encrypted(self._cred_path)
@@ -149,10 +203,37 @@ else:
                 data = {"id_token": self.token, "refresh_token": self.refresh_token}
                 _save_encrypted(self._cred_path, data)
 
+        def _start_refresh_timer(self) -> None:
+            if self._refresh_thread is None and self.refresh_token:
+                self._refresh_thread = threading.Timer(
+                    self._refresh_interval,
+                    self._refresh_timer,
+                )
+                self._refresh_thread.daemon = True
+                self._refresh_thread.start()
+
+        def _refresh_timer(self) -> None:
+            self.refresh_id_token()
+            if self.token:
+                self._refresh_thread = threading.Timer(
+                    self._refresh_interval,
+                    self._refresh_timer,
+                )
+                self._refresh_thread.daemon = True
+                self._refresh_thread.start()
+            else:
+                self._refresh_thread = None
+
+        def _stop_refresh_timer(self) -> None:
+            if self._refresh_thread is not None:
+                self._refresh_thread.cancel()
+                self._refresh_thread = None
+
         def sign_in(self, id_token: str, refresh_token: str) -> None:
             self.token = id_token
             self.refresh_token = refresh_token
             self.save_credentials()
+            self._start_refresh_timer()
 
         def refresh_id_token(self) -> None:
             if not self.refresh_token:
@@ -184,6 +265,7 @@ else:
                 self.sign_out()
 
         def sign_out(self) -> None:
+            self._stop_refresh_timer()
             self.token = None
             self.refresh_token = None
             _clear_credentials(self._cred_path)
